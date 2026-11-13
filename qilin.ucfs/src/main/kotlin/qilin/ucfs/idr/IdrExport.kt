@@ -1,6 +1,6 @@
 package qilin.ucfs.idr
 
-import qilin.ucfs.graph.CiPag
+import qilin.ucfs.graph.ImportedGraph
 import qilin.ucfs.graph.EdgeKind
 import qilin.ucfs.graph.EdgeOrigin
 import qilin.ucfs.graph.describe
@@ -16,7 +16,7 @@ import soot.jimple.NullConstant
 import java.io.File
 
 /**
- * Export of the CI constraint graph ([CiPag]) to the input of cfl-idr-with-gll (interleaved Dyck reachability),
+ * Export of the CI constraint graph ([ImportedGraph]) to the input of cfl-idr-with-gll (interleaved Dyck reachability),
  * in value-flow orientation (an edge u -> v means "the value of u flows into v"):
  *
  *   ALLOC o -> x, ASSIGN y -> x inside a method (incl. ROOT, FINALIZER)  : `normal`
@@ -25,9 +25,9 @@ import java.io.File
  *   store b.f = y                                (y -> b)                   : `ob--f`
  *   load  x = b.f                                (b -> x)                   : `cb--f`
  *
- * Vertex ids 0 until pag.nodes.size are the [CiPag] vertex ids; field ids are [CiPag] field ids; call-site ids are dense
+ * Vertex ids 0 until pag.nodes.size are the [ImportedGraph] vertex ids; field ids are [ImportedGraph] field ids; call-site ids are dense
  * over the call statements of Spark's final CI call graph (one id per statement, shared by all its targets).
- * Interprocedural edges are recomputed from the call graph exactly like [CiPag] does, but per call site (CiPag merges
+ * Interprocedural edges are recomputed from the call graph exactly like [ImportedGraph] does, but per call site (ImportedGraph merges
  * equal edges of different call sites, which is right for CI points-to but loses the parenthesis).
  *
  * Encodings ([Encoding], M7):
@@ -46,9 +46,9 @@ import java.io.File
 class IdrExport private constructor(
     val edges: List<IdrEdge>,
     val callSites: Int,
-    val pag: CiPag,
+    val pag: ImportedGraph,
     val encoding: Encoding,
-    /** extra vertices (ids from pag.nodes.size): kind and base CiPag vertex (object for heap/src, variable for sink) */
+    /** extra vertices (ids from pag.nodes.size): kind and base ImportedGraph vertex (object for heap/src, variable for sink) */
     val extraKind: List<String>,
     val extraBase: IntArray,
     /** call-site id -> call statement (for checks and reports) */
@@ -92,7 +92,7 @@ class IdrExport private constructor(
     private fun clean(s: String) = s.replace('\t', ' ').replace('\n', ' ')
 
     companion object {
-        fun build(pta: PTA, pag: CiPag, encoding: Encoding = Encoding.VF): IdrExport {
+        fun build(pta: PTA, pag: ImportedGraph, encoding: Encoding = Encoding.VF): IdrExport {
             val out = LinkedHashSet<IdrEdge>()
             val extraKind = ArrayList<String>()
             val extraBase = ArrayList<Int>()

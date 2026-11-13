@@ -1,6 +1,6 @@
 package qilin.ucfs.idr
 
-import qilin.ucfs.results.IdrResult
+import qilin.ucfs.model.IdrResult
 import qilin.ucfs.graph.describe
 
 import java.io.File

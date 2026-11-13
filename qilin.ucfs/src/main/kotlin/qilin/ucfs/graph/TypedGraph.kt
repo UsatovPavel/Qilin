@@ -37,7 +37,7 @@ import java.util.BitSet
  * Gate predicates are bit sets over tags; equal predicates share one gate id.
  */
 class TypedGraph private constructor(
-    val base: CiPag,
+    val base: ImportedGraph,
     /** vertex count = base vertices + shadow vertices (shadow i has id base.nodes.size + i) */
     val vertexCount: Int,
     val tagOf: IntArray,               // per base vertex: tag id for allocation vertices, -1 otherwise
@@ -74,7 +74,7 @@ class TypedGraph private constructor(
         internal set
 
     companion object {
-        fun build(pta: PTA, pag: CiPag, off: Set<Filter> = emptySet()): TypedGraph {
+        fun build(pta: PTA, pag: ImportedGraph, off: Set<Filter> = emptySet()): TypedGraph {
             check(!CoreConfig.v().ptaConfig.preciseArrayElement) { "-pae (typed field nodes) is not supported" }
             val g = pag.graph
             val n = g.vertexCount
@@ -116,7 +116,7 @@ class TypedGraph private constructor(
                 val thisNode = pta.pag.getMethodPAG(e.tgt()).nodeFactory().caseThis()
                 val r = pag.idOf(recv)
                 val th = pag.idOf(thisNode)
-                check(r >= 0 && th >= 0) { "receiver/this missing in CiPag for $e" }
+                check(r >= 0 && th >= 0) { "receiver/this missing in ImportedGraph for $e" }
                 val site = VirtualCallSite(
                     recv, e.srcStmt(), pta.parameterize(e.src(), pta.emptyContext()), ie,
                     ie.methodRef.subSignature, Edge.ieToKind(ie)
@@ -203,7 +203,7 @@ class TypedGraph private constructor(
         }
     }
 
-    /** A copy with another edge list over [vertexCount] vertices (graph rewrites such as [CutShortcut]; gates are shared). */
+    /** A copy with another edge list over [vertexCount] vertices (graph rewrites such as [CutShortcutOptimizedGraph]; gates are shared). */
     internal fun withEdges(vertexCount: Int, edges: List<TEdge>): TypedGraph =
         TypedGraph(base, vertexCount, tagOf, tagTypes, tagEmptyArray, gates, gateKinds, edges, fieldCount).also { it.droppedAllocs = droppedAllocs }
 

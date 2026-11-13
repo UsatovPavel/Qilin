@@ -1,7 +1,8 @@
 package qilin.ucfs.idr
 
-import qilin.ucfs.graph.CiPag
-import qilin.ucfs.results.DyckResult
+import qilin.ucfs.graph.ImportedGraph
+import qilin.ucfs.ucfs.RSM_Provider
+import qilin.ucfs.model.DyckResult
 import qilin.ucfs.graph.EdgeKind
 import qilin.ucfs.graph.EdgeOrigin
 import qilin.ucfs.QilinSession
@@ -10,9 +11,6 @@ import qilin.ucfs.graph.TypedGraph
 import org.ucfs.input.InputGraph
 import org.ucfs.input.TerminalInputLabel
 import org.ucfs.parser.Gll
-import org.ucfs.rsm.RsmState
-import org.ucfs.rsm.symbol.Nonterminal
-import org.ucfs.rsm.symbol.Term
 import qilin.core.PTA
 import qilin.core.pag.GlobalVarNode
 import qilin.core.pag.VarNode
@@ -37,7 +35,7 @@ import java.lang.management.ManagementFactory
  * with Spark ∩ (E2).
  */
 class DyckCalls private constructor(
-    val pag: CiPag,
+    val pag: ImportedGraph,
     val vertexCount: Int,
     val edges: List<Triple<Int, String, Int>>,
     val sites: Int,
@@ -65,7 +63,7 @@ class DyckCalls private constructor(
         }
 
         /** [selected]: methods whose calls get parentheses (variant A′, M16); calls of other methods are plain flow `a`; null — every method (variant A). */
-        fun build(pta: PTA, pag: CiPag, selected: ((soot.SootMethod) -> Boolean)? = null): DyckCalls {
+        fun build(pta: PTA, pag: ImportedGraph, selected: ((soot.SootMethod) -> Boolean)? = null): DyckCalls {
             val edges = LinkedHashSet<Triple<Int, String, Int>>()
             val (nv, sites) = collect(pta, pag, selected) { u, l, v, _ -> edges.add(Triple(u, l, v)) }
             return DyckCalls(pag, nv, edges.toList(), sites)
@@ -77,7 +75,7 @@ class DyckCalls private constructor(
          * are not filtered (field nodes without -pae). A filter depends on the object that flows, so the graph is the product
          * "vertex × tag" (tag = type of the allocation) over the pairs reachable from (o, tag(o)) along admitted edges.
          */
-        fun buildTyped(pta: PTA, pag: CiPag, selected: ((soot.SootMethod) -> Boolean)? = null): DyckCalls {
+        fun buildTyped(pta: PTA, pag: ImportedGraph, selected: ((soot.SootMethod) -> Boolean)? = null): DyckCalls {
             // base edges grouped by (src, label, dst) with the filters of their origins (any admits)
             val grouped = LinkedHashMap<Triple<Int, String, Int>, MutableList<Gate?>>()
             val (nb, sites) = collect(pta, pag, selected) { u, l, v, gt -> grouped.getOrPut(Triple(u, l, v)) { ArrayList(1) }.add(gt) }
@@ -109,7 +107,7 @@ class DyckCalls private constructor(
         }
 
         /** Edges of A/A′ over the base graph (+ heap vertices) with their Spark filters; returns (vertex count, call sites). */
-        private fun collect(pta: PTA, pag: CiPag, selected: ((soot.SootMethod) -> Boolean)?, emit: (Int, String, Int, Gate?) -> Unit): Pair<Int, Int> {
+        private fun collect(pta: PTA, pag: ImportedGraph, selected: ((soot.SootMethod) -> Boolean)?, emit: (Int, String, Int, Gate?) -> Unit): Pair<Int, Int> {
             val n = pag.nodes.size
             var nv = n
             val heap = HashMap<Pair<Int, Int>, Int>()
@@ -223,46 +221,16 @@ class DyckCalls private constructor(
     /** Solves the language from every allocation vertex; pairs (variable, object) for the base variables of the CI graph. */
     fun solve(reachOnly: Boolean = true, heap: Boolean = false): DyckResult {
         val tm0 = System.nanoTime()
-        val terms = HashMap<String, TerminalInputLabel>()
-        fun label(s: String) = terms.getOrPut(s) { TerminalInputLabel(Term(s)) }
-        fun t(s: String) = label(s).terminal
-        var states = 0
-        fun st(nt: Nonterminal, start: Boolean = false, final: Boolean = false) =
-            RsmState(nt, isStart = start, isFinal = final).also { states++; if (start) nt.startState = it }
-        // UCFS indexes terminal transitions (one edge per terminal and state, D11): the RSM is deterministic on terminals and
-        // branches only on nonterminal calls; no nonterminal derives the empty string (path ends are final states instead).
-        // P — a path in X mode (unmatched returns allowed); T — the rest after an unmatched call (N mode); B — a balanced segment.
-        //   P -> item | item P,  item = a | h | r_i | c_i r_i | c_i B r_i;   P -> c_i | c_i T
-        //   T -> titem | titem T | h | h P,  titem = a | c_i r_i | c_i B r_i | c_i;      B -> bitem | bitem B,  bitem = a | c_i r_i | c_i B r_i
-        val p = Nonterminal("P"); val tn = Nonterminal("T"); val b = Nonterminal("B")
-        val x = st(p, start = true); val x1 = st(p, final = true); val pf = st(p, final = true)
-        val q0 = st(tn, start = true); val q1 = st(tn, final = true); val qh = st(tn, final = true); val qf = st(tn, final = true)
-        val s0 = st(b, start = true); val s1 = st(b, final = true); val s2 = st(b, final = true)
-        x.addEdge(t("a"), x1); x.addEdge(t("h"), x1); x1.addEdge(p, pf)
-        q0.addEdge(t("a"), q1); q0.addEdge(t("h"), qh); q1.addEdge(tn, qf); qh.addEdge(p, qf)
-        s0.addEdge(t("a"), s1); s1.addEdge(b, s2)
-        for (i in 0 until sites) {
-            val c = t("c$i"); val r = t("r$i")
-            x.addEdge(r, x1)                                            // unmatched return
-            val y = st(p, final = true); val z = st(p)                  // after c_i in X mode: unmatched (end or T) or matched
-            x.addEdge(c, y); y.addEdge(tn, pf); y.addEdge(r, x1); y.addEdge(b, z); z.addEdge(r, x1)
-            val u = st(tn, final = true); val w = st(tn)                // after c_i in N mode
-            q0.addEdge(c, u); u.addEdge(tn, qf); u.addEdge(r, q1); u.addEdge(b, w); w.addEdge(r, q1)
-            val bv = st(b); val bv2 = st(b)                             // matched call inside a balanced segment
-            s0.addEdge(c, bv); bv.addEdge(r, s1); bv.addEdge(b, bv2); bv2.addEdge(r, s1)
-        }
-        // Gll.gll takes a fictive start state whose only edge (a call of the start nonterminal) leads to the accepting state
-        val sNt = Nonterminal("S"); val sStart = st(sNt, start = true); val sFinal = st(sNt, final = true)
-        sStart.addEdge(p, sFinal)
+        val rsm = RSM_Provider.dyck(sites)
         val g = InputGraph<Int, TerminalInputLabel>()
         for (v in 0 until vertexCount) g.addVertex(v)
-        for ((u, l, v) in edges) g.addEdge(u, label(l), v)
+        for ((u, l, v) in edges) g.addEdge(u, rsm.label(l), v)
         for (o in startVertices()) g.addStartVertex(o)
         val mx = ManagementFactory.getMemoryMXBean()
         fun used(): Long { System.gc(); return mx.heapMemoryUsage.used }
         val heap0 = if (heap) used() else 0L
         val tm1 = System.nanoTime()
-        val roots = Gll.gll(sStart, g, reachabilityOnly = reachOnly).parse()
+        val roots = Gll.gll(rsm.startState, g, reachabilityOnly = reachOnly).parse()
         val tm2 = System.nanoTime()
         val live = if (heap) (used() - heap0) / (1024 * 1024) else -1L
         val n = pag.nodes.size
@@ -282,7 +250,7 @@ class DyckCalls private constructor(
             val os = byVertex[rep?.get(v) ?: v] ?: continue
             res.getOrPut(base(v)) { HashSet() }.addAll(os)
         }
-        return DyckResult(res, (tm1 - tm0) / 1_000_000, (tm2 - tm1) / 1_000_000, states, roots.size, live)
+        return DyckResult(res, (tm1 - tm0) / 1_000_000, (tm2 - tm1) / 1_000_000, rsm.states, roots.size, live)
     }
 }
 

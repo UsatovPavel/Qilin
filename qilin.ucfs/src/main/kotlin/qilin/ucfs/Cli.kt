@@ -1,20 +1,18 @@
 package qilin.ucfs
 
-import qilin.ucfs.graph.CiPag
-import qilin.ucfs.graph.CutShortcut
+import qilin.ucfs.graph.ImportedGraph
+import qilin.ucfs.graph.CutShortcutOptimizedGraph
 import qilin.ucfs.idr.DyckCalls
 import qilin.ucfs.graph.EdgeKind
 import qilin.ucfs.idr.IdrExport
 import qilin.ucfs.idr.IdrRun
-import qilin.ucfs.ucfs.PointsToGrammar
-import qilin.ucfs.results.PtsImport
-import qilin.ucfs.graph.QuerySets
-import qilin.ucfs.banchmark.ReferenceAndersenSolver
-import qilin.ucfs.banchmark.RsmSolve
-import qilin.ucfs.banchmark.SparkCompare
+import qilin.ucfs.ucfs.RSM_Provider
+import qilin.ucfs.results.PointsToSetsImport
+import qilin.ucfs.graph.QueryVertexes
+import qilin.ucfs.benchmark.ReferenceAndersenSolver
+import qilin.ucfs.ucfs.RsmSolve
+import qilin.ucfs.benchmark.SparkCompare
 import qilin.ucfs.graph.TypedGraph
-import qilin.ucfs.ucfs.TypedPointsTo
-import qilin.ucfs.ucfs.TypedPointsToGrammar
 import qilin.ucfs.ucfs.TypedPointsToShared
 import qilin.ucfs.ucfs.UcfsPointsTo
 import qilin.ucfs.graph.describe
@@ -26,11 +24,10 @@ import kotlin.system.exitProcess
 /**
  * Command-line runner: Qilin Spark -> CI constraint graph -> UCFS points-to, with per-phase timings.
  *
- *   qilin.ucfs [--solver=plain|typed|typed-subset|ref|classify|none] [--out=<dir>] [--check-spark] [--metrics] -- <Qilin options...>
+ *   qilin.ucfs [--solver=plain|typed|ref|classify|none] [--out=<dir>] [--check-spark] [--metrics] -- <Qilin options...>
  *
  *  - plain    : UCFS, untyped field-sensitive points-to grammar (M3); `ucfs` is an alias
  *  - typed    : UCFS over the typed graph (Spark's filters as gates, M4), grammar v2 [TypedPointsToShared]
- *  - typed-subset : the same with grammar v1 [TypedPointsToGrammar] (one PT state per set of admitted tags)
  *  - ref      : worklist Andersen without type filter (reference for plain)
  *  - classify : plain + typed with each single Spark filter switched off; classifies plain's extra pairs
  *  - none     : Spark and export only
@@ -43,7 +40,7 @@ import kotlin.system.exitProcess
  *  --cs-oracle=<pattern> : (idr) also run Qilin's own analysis <pattern> (e.g. 2c) and classify the IDR pairs missing vs Spark
  *  --inject      : import the result into Qilin's PAG (timed phase `injectMs`, no metrics)
  *  --off=F1,F2   : (typed) switch off these Spark filters, see [TypedGraph.Filter]
- *  --cut-shortcut=field,local : (typed, rsm) Cut-Shortcut rewrite of the typed graph before solving, see [CutShortcut]
+ *  --cut-shortcut=field,local : (typed, rsm) Cut-Shortcut rewrite of the typed graph before solving, see [CutShortcutOptimizedGraph]
  *  --solver=dyck [--dyck-and-spark] [--heap] [--dyck-select=zipper|all|none] : variant A (A′ with a selection), [DyckCalls]
  *               [--dyck-typed] [--dyck-reduce] : with Spark's filters (product graph vertex × tag) and the exact reduction (M17)
  *  --check-spark : per-variable oracle against Spark (`reachingObjects`) + call graph derived from the result
@@ -54,10 +51,11 @@ import kotlin.system.exitProcess
  */
 fun main(args: Array<String>) {
     val sep = args.indexOf("--")
-    require(sep >= 0) { "usage: qilin.ucfs [--solver=plain|typed|typed-subset|ref|classify|none] [--out=<dir>] [--check-spark] [--metrics] -- <Qilin options>" }
+    require(sep >= 0) { "usage: qilin.ucfs [--solver=plain|typed|ref|classify|none] [--out=<dir>] [--check-spark] [--metrics] -- <Qilin options>" }
     val own = args.take(sep)
     val qilinArgs = args.drop(sep + 1)
     val solver = (own.firstOrNull { it.startsWith("--solver=") }?.substringAfter("=") ?: "plain").let { if (it == "ucfs") "plain" else it }
+    require(solver != "typed-subset") { "typed-subset is archived; do not run it. Use --solver=typed (shared-v2)." }
     val out = own.firstOrNull { it.startsWith("--out=") }?.substringAfter("=")?.let { File(it) }
     val checkSpark = "--check-spark" in own || solver == "classify"
     val metrics = "--metrics" in own
@@ -102,7 +100,7 @@ fun main(args: Array<String>) {
     // --dyck-select=zipper (M16) needs call details recorded during Spark (Zipper's pre-analysis)
     val dyckSelect = own.firstOrNull { it.startsWith("--dyck-select=") }?.substringAfter("=")
     val pta = phase("spark") { QilinSession.runSpark(callDetails = dyckSelect == "zipper") }
-    val pag = phase("export") { CiPag.build(pta) }
+    val pag = phase("export") { ImportedGraph.build(pta) }
     val g = pag.graph
     stats["vertices"] = g.vertexCount
     stats["vars"] = g.varIds().size
@@ -121,18 +119,17 @@ fun main(args: Array<String>) {
     }
     println("GRAPH " + stats.filterKeys { it != "qilinArgs" }) // printed before solving: survives a later OOM
     System.out.flush()
-    val sparkMetrics = if (metrics) phase("sparkMetrics") { PtsImport.qilinMetrics(pta) } else emptyMap()
+    val sparkMetrics = if (metrics) phase("sparkMetrics") { PointsToSetsImport.qilinMetrics(pta) } else emptyMap()
     // Spark's sets are read once, before anything is imported into Qilin's PAG: every later comparison uses this snapshot
     // (reading reachingObjects after an import would compare a result with itself)
     val sparkSnap: Map<Int, Set<Int>> = if (checkSpark || csOracle) SparkCompare.sparkSets(pta, pag) else emptyMap()
     for ((k, v) in sparkMetrics) stats["spark " + k.trimEnd(':')] = v
 
-    val variant = if (solver == "typed-subset") TypedPointsTo.Variant.SUBSET else TypedPointsTo.Variant.SHARED
-    // --cut-shortcut=field,local[,container]: Cut-Shortcut as a rewrite of the typed graph before solving (M14, CutShortcut)
-    val cutShortcut = own.firstOrNull { it.startsWith("--cut-shortcut=") }?.substringAfter("=")?.let { CutShortcut.parse(it) }
+    // --cut-shortcut=field,local[,container]: Cut-Shortcut as a rewrite of the typed graph before solving (M14, CutShortcutOptimizedGraph)
+    val cutShortcut = own.firstOrNull { it.startsWith("--cut-shortcut=") }?.substringAfter("=")?.let { CutShortcutOptimizedGraph.parse(it) }
     fun rewrite(tg: TypedGraph, prefix: String): TypedGraph {
         if (cutShortcut == null) return tg
-        val r = phase("${prefix}cutShortcut") { CutShortcut.apply(pta, pag, tg, cutShortcut) }
+        val r = phase("${prefix}cutShortcut") { CutShortcutOptimizedGraph.apply(pta, pag, tg, cutShortcut) }
         stats["${prefix}cutShortcut"] = cutShortcut.sorted().joinToString("+")
         for ((k, v) in r.stats) stats["${prefix}cs_$k"] = v
         return r.graph
@@ -144,7 +141,7 @@ fun main(args: Array<String>) {
         stats["${prefix}tags"] = tg.tagCount
         stats["${prefix}gates"] = tg.gates.size
         stats["${prefix}droppedAllocs"] = tg.droppedAllocs
-        val r = TypedPointsTo.solve(tg, variant = variant, reduce = reduce, reachOnly = reachOnly)
+        val r = TypedPointsToShared.solve(tg, reduce = reduce, reachOnly = reachOnly)
         if (reduce) { stats["${prefix}reducedStarts"] = r.reducedStarts; stats["${prefix}reducedEdges"] = r.reducedEdges }
         stats["${prefix}rsmStates"] = r.constraintStates
         stats["${prefix}ucfsGraphMs"] = r.graphMillis
@@ -153,7 +150,7 @@ fun main(args: Array<String>) {
         return r.pointsTo
     }
     fun plain(): Map<Int, Set<Int>> {
-        val gr = PointsToGrammar(g.fieldCount)
+        val gr = RSM_Provider.plain(g.fieldCount)
         val input = phase("ucfsGraph") { UcfsPointsTo.inputGraph(g, gr, g.varIds()) }
         val roots = phase("ucfsSolve") { org.ucfs.parser.Gll.gll(gr.startState, input, reachabilityOnly = reachOnly).parse() }
         stats["sppfRoots"] = roots.size
@@ -200,7 +197,7 @@ fun main(args: Array<String>) {
         val byNew = HashMap<Any, Int>()
         for (o in g.allocIds()) (pag.nodes[o] as? qilin.core.pag.AllocNode)?.newExpr?.let { byNew[it] = o }
         val metricsBefore = LinkedHashMap<String, Map<String, String>>()
-        if (withMetrics) for ((name, m) in sets) { PtsImport.inject(pta, pag, m); metricsBefore[name] = PtsImport.qilinMetrics(pta) }
+        if (withMetrics) for ((name, m) in sets) { PointsToSetsImport.inject(pta, pag, m); metricsBefore[name] = PointsToSetsImport.qilinMetrics(pta) }
         // a variable of our graph without a node in an oracle's PAG, or an oracle object without a counterpart in our graph,
         // makes that oracle's verdict unknown for that variable (never "absent in the oracle"); verdicts are kept per oracle
         val unknownBy = LinkedHashMap<String, Set<Int>>()
@@ -274,7 +271,7 @@ fun main(args: Array<String>) {
     val pts: Map<Int, Set<Int>>? = when (solver) {
         "plain" -> plain()
         "classify" -> if ("--skip-m3plain" in own) null else plain().also { stats["plainM3"] = "done" }
-        "typed", "typed-subset" -> typed(off, "")
+        "typed" -> typed(off, "")
         // M13: hand-built RSM designs over the same typed graph (--rsm=v2|ft, --profile prints GLL work per RSM state)
         "rsm" -> {
             val design = own.firstOrNull { it.startsWith("--rsm=") }?.substringAfter("=") ?: "v2"
@@ -283,7 +280,7 @@ fun main(args: Array<String>) {
             stats["tags"] = tg.tagCount; stats["gates"] = tg.gates.size; stats["rsm"] = design
             // --query=casts|receivers|sample:N: start only at the client's variables (demand-driven, advisor's point 6)
             val qv = own.firstOrNull { it.startsWith("--query=") }?.substringAfter("=")?.let { q ->
-                phase("querySet") { QuerySets.of(q, pta, pag) }.also { stats["query"] = q; stats["queryVars"] = it.size }
+                phase("querySet") { QueryVertexes.of(q, pta, pag) }.also { stats["query"] = q; stats["queryVars"] = it.size }
             }
             queryVars = qv?.toSet()
             val r = RsmSolve.solve(tg, design, qv ?: tg.base.graph.varIds(), reduce, reachOnly, "--profile" in own, "--heap" in own)
@@ -345,8 +342,8 @@ fun main(args: Array<String>) {
             // that the IDR set misses w.r.t. Spark is classified by whether that analysis misses it too
             own.firstOrNull { it.startsWith("--cs-oracle=") }?.substringAfter("=")?.let { pat -> csClassify(pat, sets) }
             if (metrics && !csOracle) for ((name, m) in sets) {
-                PtsImport.inject(pta, pag, m)
-                for ((k, v) in PtsImport.qilinMetrics(pta)) stats["$name " + k.trimEnd(':')] = v
+                PointsToSetsImport.inject(pta, pag, m)
+                for ((k, v) in PointsToSetsImport.qilinMetrics(pta)) stats["$name " + k.trimEnd(':')] = v
             }
             when (set) { "under" -> under; "over" -> over ?: error("no over list for $grammar"); "ondemand" -> od ?: error("ondemand needs parityD"); else -> error("--idr-set") }
         }
@@ -409,10 +406,10 @@ fun main(args: Array<String>) {
 
     }
     // --inject: import the result into Qilin's PAG without computing metrics (timed phase for benchmarks, M5)
-    if ("--inject" in own && pts != null && !oracleRan) phase("inject") { PtsImport.inject(pta, pag, pts) }
+    if ("--inject" in own && pts != null && !oracleRan) phase("inject") { PointsToSetsImport.inject(pta, pag, pts) }
     if (metrics && pts != null && !oracleRan) phase("import") { // after --cs-oracle the scene is reset: metrics were taken before
-        PtsImport.inject(pta, pag, pts)
-        for ((k, v) in PtsImport.qilinMetrics(pta)) stats["$solver " + k.trimEnd(':')] = v
+        PointsToSetsImport.inject(pta, pag, pts)
+        for ((k, v) in PointsToSetsImport.qilinMetrics(pta)) stats["$solver " + k.trimEnd(':')] = v
     }
     // typed/rsm (M14): the result is classified against Qilin's own analysis after everything else has read Spark's state
     if (csOracle && !oracleRan && pts != null) own.firstOrNull { it.startsWith("--cs-oracle=") }?.substringAfter("=")?.let { pat ->

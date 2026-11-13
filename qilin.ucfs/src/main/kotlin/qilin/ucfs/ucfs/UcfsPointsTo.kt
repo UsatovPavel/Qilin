@@ -1,8 +1,9 @@
 package qilin.ucfs.ucfs
 
+import qilin.ucfs.ucfs.RSM_Provider
 import qilin.ucfs.graph.ConstraintGraph
 import qilin.ucfs.graph.EdgeKind
-import qilin.ucfs.results.UcfsResult
+import qilin.ucfs.model.UcfsResult
 
 import org.ucfs.input.InputGraph
 import org.ucfs.input.TerminalInputLabel
@@ -11,8 +12,8 @@ import org.ucfs.rsm.RsmState
 import org.ucfs.sppf.node.RangeSppfNode
 
 object UcfsPointsTo {
-    /** Builds the UCFS input graph of [pag] (both orientations, see [PointsToGrammar]). */
-    fun inputGraph(pag: ConstraintGraph, g: PointsToGrammar, startVars: Collection<Int>): InputGraph<Int, TerminalInputLabel> {
+    /** Builds the UCFS input graph of [pag] (both orientations, see [RSM_Provider.PlainRsm]). */
+    fun inputGraph(pag: ConstraintGraph, g: RSM_Provider.PlainRsm, startVars: Collection<Int>): InputGraph<Int, TerminalInputLabel> {
         val graph = InputGraph<Int, TerminalInputLabel>()
         for (v in 0 until pag.vertexCount) graph.addVertex(v)
         for (e in pag.edges) {
@@ -42,7 +43,7 @@ object UcfsPointsTo {
     /** Points-to sets of [startVars] (default: every variable vertex) computed by UCFS. */
     fun solve(pag: ConstraintGraph, startVars: Collection<Int> = pag.varIds()): UcfsResult {
         val t0 = System.nanoTime()
-        val g = PointsToGrammar(pag.fieldCount)
+        val g = RSM_Provider.plain(pag.fieldCount)
         val graph = inputGraph(pag, g, startVars)
         val t1 = System.nanoTime()
         val roots = Gll.gll(g.startState, graph).parse()
