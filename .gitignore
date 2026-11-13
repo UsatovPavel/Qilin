@@ -7,6 +7,10 @@ __pycache__/
 build/
 bin/
 benchmark
+# Source packages named benchmark are part of the UCFS integration.
+!qilin.ucfs/src/main/kotlin/qilin/ucfs/benchmark/
+!qilin.ucfs/src/test/kotlin/qilin/ucfs/benchmark/
+!qilin.ucfs/src/csprogs/java/qilin/ucfs/benchmark/
 out/
 artifact/output/
 run/pta/Qilin-all-1.0-SNAPSHOT.jar

@@ -2,4 +2,13 @@ rootProject.name = 'Qilin'
 include 'qilin.util'
 include 'qilin.core'
 include 'qilin.pta'
+include 'qilin.ucfs'
 
+// UCFS (CFL-reachability solver) is consumed from source as a composite build.
+// Override the checkout with -PucfsDir=/path/to/UCFS (default: sibling directory ../UCFS).
+def ucfsDir = file(providers.gradleProperty('ucfsDir').getOrElse("${rootDir}/../UCFS"))
+includeBuild(ucfsDir) {
+    dependencySubstitution {
+        substitute module('org.ucfs:solver') using project(':solver')
+    }
+}
