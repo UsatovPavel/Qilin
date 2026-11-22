@@ -45,6 +45,24 @@ flowchart TD
 
 The `qilin.ucfs` Gradle module runs Qilin, converts its solved graph, invokes a CFL solver, and imports the resulting points-to sets.
 
+## Stack
+
+Kotlin for the integration module, matching the Kotlin implementation of the UCFS/GLL solver; Java for Qilin and Soot.
+
+## Comparison analyses
+
+**Final comparative benchmark results are not ready yet.** The table lists the analyses to compare, not established performance or precision rankings.
+
+| Sensitivity | Analysis | Role |
+| --- | --- | --- |
+| Context-sensitive | CFL-IDR | Analysis under evaluation, with under- and over-approximations |
+| Context-sensitive | Qilin `s-2c` | Fast selective 2-call-site-sensitive comparison, guided by a pre-analysis |
+| Context-sensitive | Qilin `2c` / `2o` | Standard 2-call-site-sensitive / 2-object-sensitive comparisons |
+| Context-insensitive | UCFS-typed | Typed, field-sensitive points-to analysis through UCFS/GLL |
+| Context-insensitive | Qilin Spark (`insens`) | Native context-insensitive reference and graph-building pre-analysis |
+
+## Packages
+
 | Package | Responsibility |
 | --- | --- |
 | `qilin.ucfs` | CLI (`CliKt`) and the Qilin session lifecycle |
@@ -86,7 +104,9 @@ Input graph preparation, GLL execution, profiling and answer extraction remain o
 
 ## Archived grammar — do not run
 
-`archive/TypedPointsTo.kt` preserves the old **subset/v1** grammar for historical reference only. It is marked `@Deprecated(level = DeprecationLevel.ERROR)`. **Do not run it, add it to tests or benchmarks, or use it as an active solver.** The `--solver=typed-subset` selector is rejected before Qilin starts. Use `--solver=typed` for shared-v2; current comparisons exercise active provider designs instead of the archived grammar.
+`archive/TypedPointsTo.kt` is deprecated subset/v1 code (`DeprecationLevel.ERROR`): **do not run or benchmark it**. `--solver=typed-subset` is rejected; use `--solver=typed` (shared-v2).
+
+## Build and test
 
 Use JDK 21 and a sibling UCFS checkout (or `-PucfsDir=/path/to/UCFS`):
 
