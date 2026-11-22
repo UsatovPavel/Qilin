@@ -1,5 +1,48 @@
 # UCFS integration
 
+```mermaid
+flowchart TD
+    A["Qilin / Spark"]
+    B["Graph export"]
+    C["Input adapter"]
+    D["CFL-IDR"]
+    E["Grammar RSMs"]
+    F["UCFS / GLL"]
+    G["SPPF"]
+    H["Result adapter"]
+
+    A --> B --> C --> D
+    D -->|"grammar selection"| E
+    E --> F
+    C -->|"graph + starts"| F
+    F --> G
+    G -->|"mutual refinement"| D
+    D -->|"under / over"| H
+
+    subgraph legend["Legend"]
+        direction LR
+        legendAdapter["Our adapters"]
+        legendCflidr["CFL-IDR"]
+        legendUcfs["UCFS"]
+    end
+
+    classDef host fill:#e8f0fe,stroke:#4277af,color:#183249;
+    classDef adapter fill:#fff2db,stroke:#ba8424,color:#513b16;
+    classDef library fill:#e5f5ec,stroke:#328066,color:#183e31;
+    classDef solver fill:#f0eafa,stroke:#8062ab,color:#35234c;
+    class A host;
+    class B,C,H,legendAdapter adapter;
+    class D,E,legendCflidr library;
+    class F,G,legendUcfs solver;
+    style legend fill:transparent,stroke:#aaaaaa;
+```
+
+## List of articles
+
+- **Qilin (2022)** — [Qilin: A New Framework For Supporting Fine-Grained Context-Sensitivity in Java Pointer Analysis](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ECOOP.2022.30).
+- **CFL-IDR (2025)** — [CFL-based methods for approximating interleaved Dyck reachability](https://cs.au.dk/~pavlogiannis/publications/papers/sttt25.pdf).
+- **Points-to analysis in Java (2005)** — [Demand-driven points-to analysis for Java](https://manu.sridharan.net/files/oopsla05.pdf).
+
 The `qilin.ucfs` Gradle module runs Qilin, converts its solved graph, invokes a CFL solver, and imports the resulting points-to sets.
 
 | Package | Responsibility |
