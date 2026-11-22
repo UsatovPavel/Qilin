@@ -1,0 +1,47 @@
+plugins {
+    id 'org.jetbrains.kotlin.jvm' version '2.1.21'
+    id 'application'
+}
+
+application {
+    mainClass = 'qilin.ucfs.CliKt'   // installDist -> build/install/qilin.ucfs/bin/qilin.ucfs
+}
+
+repositories {
+    google()
+    mavenCentral()
+}
+
+dependencies {
+    implementation 'org.ucfs:solver'          // substituted by the UCFS included build (settings.gradle)
+    implementation(project(':qilin.core'))
+    implementation(project(':qilin.pta'))
+    implementation("org.soot-oss:soot:${rootProject.ext.sootVersion}")
+    implementation group: 'commons-cli', name: 'commons-cli', version: '1.7.0'   // PTAOption extends Options
+    testImplementation 'org.jetbrains.kotlin:kotlin-test-junit'
+    testImplementation 'junit:junit:4.13.2'
+}
+
+kotlin {
+    jvmToolchain(21)
+}
+
+// M14: small Java programs for the Cut-Shortcut acceptance tests, analysed by Qilin (class files, Java 8 bytecode)
+sourceSets {
+    csprogs {
+        java { srcDir 'src/csprogs/java' }
+    }
+}
+compileCsprogsJava {
+    options.release = 8
+}
+
+test {
+    useJUnit()
+    maxHeapSize = '10g' // M14: the context microbenchmarks over collections reach JRE-scale graphs
+    dependsOn 'csprogsClasses'
+    systemProperty 'csprogs.dir', sourceSets.csprogs.java.destinationDirectory.get().asFile.path
+    def cflidrJar = providers.gradleProperty('cflidrJar').orElse(providers.environmentVariable('CFLIDR_JAR')).orNull
+    if (cflidrJar) systemProperty 'cflidr.jar', cflidrJar
+    forkEvery = 1 // Qilin/Soot are JVM-wide singletons: one application path per test class
+}

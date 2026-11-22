@@ -1,0 +1,182 @@
+# Container API of java.util (JRE 1.6) for the container access pattern of Cut-Shortcut (M18, Ma et al. PLDI'23 §3.3, §4.3).
+# Source: the Entrance/Exit/Transfer relations of the paper, written out for the JRE 1.6 classes used by Qilin's benchmarks
+# (java.util.{Collection,List,Set,Queue,Deque,Map,Iterator,ListIterator,Enumeration,Map.Entry} and Vector, Stack, LinkedList,
+# Hashtable, TreeMap, TreeSet, PriorityQueue). A method matches by sub-signature when it is declared in a java.util class.
+#
+# kind  <TAB> views <TAB> sub-signature <TAB> argument
+#   views: COL (a collection), MAP (a map), KEYS / VALUES / ENTRIES (views of a map), ENTRY (a Map.Entry); iterators carry
+#          the view of the collection they come from; * — any view
+#   ENTRANCE: k:CHAN — the k-th argument becomes an element of channel CHAN of the host (ELEM = the element channel of the view:
+#             COL -> E, KEYS -> K, VALUES -> V)
+#   EXIT:     CHAN — the return value is an element of that channel of the host
+#   TRANSFER: VIEW — the returned object depends on the same host with view VIEW (SAME — the receiver's view)
+#   ENTRANCE_ALL: k — every element of the hosts of the k-th argument becomes an element of the host (addAll, putAll, copy constructors)
+#   NEUTRAL:  adds no element to the host (reads, removals, sizes, constructors without elements)
+# A call on a host (or on an object depending on one) of a method that is in none of these lists excludes the host's class
+# from the pattern.
+ENTRANCE	COL	boolean add(java.lang.Object)	0:ELEM
+ENTRANCE	COL	void add(int,java.lang.Object)	1:ELEM
+ENTRANCE	COL	java.lang.Object set(int,java.lang.Object)	1:ELEM
+EXIT	COL	java.lang.Object set(int,java.lang.Object)	ELEM
+ENTRANCE	COL	void addElement(java.lang.Object)	0:ELEM
+ENTRANCE	COL	void insertElementAt(java.lang.Object,int)	0:ELEM
+ENTRANCE	COL	void setElementAt(java.lang.Object,int)	0:ELEM
+ENTRANCE	COL	java.lang.Object push(java.lang.Object)	0:ELEM
+ENTRANCE	COL	void push(java.lang.Object)	0:ELEM
+ENTRANCE	COL	void addFirst(java.lang.Object)	0:ELEM
+ENTRANCE	COL	void addLast(java.lang.Object)	0:ELEM
+ENTRANCE	COL	boolean offer(java.lang.Object)	0:ELEM
+ENTRANCE	COL	boolean offerFirst(java.lang.Object)	0:ELEM
+ENTRANCE	COL	boolean offerLast(java.lang.Object)	0:ELEM
+EXIT	COL	java.lang.Object get(int)	ELEM
+EXIT	COL	java.lang.Object remove(int)	ELEM
+EXIT	COL	java.lang.Object elementAt(int)	ELEM
+EXIT	COL	java.lang.Object firstElement()	ELEM
+EXIT	COL	java.lang.Object lastElement()	ELEM
+EXIT	COL	java.lang.Object pop()	ELEM
+EXIT	COL	java.lang.Object peek()	ELEM
+EXIT	COL	java.lang.Object poll()	ELEM
+EXIT	COL	java.lang.Object element()	ELEM
+EXIT	COL	java.lang.Object remove()	ELEM
+EXIT	COL	java.lang.Object getFirst()	ELEM
+EXIT	COL	java.lang.Object getLast()	ELEM
+EXIT	COL	java.lang.Object removeFirst()	ELEM
+EXIT	COL	java.lang.Object removeLast()	ELEM
+EXIT	COL	java.lang.Object pollFirst()	ELEM
+EXIT	COL	java.lang.Object pollLast()	ELEM
+EXIT	COL	java.lang.Object peekFirst()	ELEM
+EXIT	COL	java.lang.Object peekLast()	ELEM
+EXIT	COL	java.lang.Object first()	ELEM
+EXIT	COL	java.lang.Object last()	ELEM
+# added after the comparison with the authors' specification (Tai-e DefaultContainerConfig of the Cut-Shortcut artifact, D67):
+# navigable sets, blocking queues and deques, DelayQueue (erased to Delayed), CopyOnWriteArrayList, EnumMap, Properties, ConcurrentMap.replace;
+# the variants of ScheduledThreadPoolExecutor.DelayedWorkQueue are left out: it is allocated only inside java.util, so it is never a host
+EXIT	COL	java.lang.Object push(java.lang.Object)	ELEM
+EXIT	COL	java.lang.Object ceiling(java.lang.Object)	ELEM
+EXIT	COL	java.lang.Object floor(java.lang.Object)	ELEM
+EXIT	COL	java.lang.Object higher(java.lang.Object)	ELEM
+EXIT	COL	java.lang.Object lower(java.lang.Object)	ELEM
+EXIT	COL	java.lang.Object take()	ELEM
+EXIT	COL	java.lang.Object takeFirst()	ELEM
+EXIT	COL	java.lang.Object takeLast()	ELEM
+EXIT	COL	java.lang.Object poll(long,java.util.concurrent.TimeUnit)	ELEM
+EXIT	COL	java.lang.Object pollFirst(long,java.util.concurrent.TimeUnit)	ELEM
+EXIT	COL	java.lang.Object pollLast(long,java.util.concurrent.TimeUnit)	ELEM
+EXIT	COL	java.util.concurrent.Delayed peek()	ELEM
+EXIT	COL	java.util.concurrent.Delayed poll()	ELEM
+EXIT	COL	java.util.concurrent.Delayed poll(long,java.util.concurrent.TimeUnit)	ELEM
+EXIT	COL	java.util.concurrent.Delayed take()	ELEM
+ENTRANCE	COL	void put(java.lang.Object)	0:ELEM
+ENTRANCE	COL	void putFirst(java.lang.Object)	0:ELEM
+ENTRANCE	COL	void putLast(java.lang.Object)	0:ELEM
+ENTRANCE	COL	boolean offer(java.lang.Object,long,java.util.concurrent.TimeUnit)	0:ELEM
+ENTRANCE	COL	boolean offerFirst(java.lang.Object,long,java.util.concurrent.TimeUnit)	0:ELEM
+ENTRANCE	COL	boolean offerLast(java.lang.Object,long,java.util.concurrent.TimeUnit)	0:ELEM
+ENTRANCE	COL	boolean addIfAbsent(java.lang.Object)	0:ELEM
+ENTRANCE	COL	boolean add(java.util.concurrent.Delayed)	0:ELEM
+ENTRANCE	COL	boolean offer(java.util.concurrent.Delayed)	0:ELEM
+ENTRANCE	COL	boolean offer(java.util.concurrent.Delayed,long,java.util.concurrent.TimeUnit)	0:ELEM
+ENTRANCE	COL	void put(java.util.concurrent.Delayed)	0:ELEM
+ENTRANCE	MAP	java.lang.Object put(java.lang.Enum,java.lang.Object)	0:K 1:V
+EXIT	MAP	java.lang.Object put(java.lang.Enum,java.lang.Object)	V
+ENTRANCE	MAP	java.lang.Object setProperty(java.lang.String,java.lang.String)	0:K 1:V
+EXIT	MAP	java.lang.Object setProperty(java.lang.String,java.lang.String)	V
+EXIT	MAP	java.lang.String getProperty(java.lang.String)	V
+ENTRANCE	MAP	java.lang.Object replace(java.lang.Object,java.lang.Object)	1:V
+EXIT	MAP	java.lang.Object replace(java.lang.Object,java.lang.Object)	V
+ENTRANCE	MAP	boolean replace(java.lang.Object,java.lang.Object,java.lang.Object)	2:V
+# iterators and enumerations (on a collection, on keySet() or values() of a map)
+EXIT	COL,KEYS,VALUES	java.lang.Object next()	ELEM
+EXIT	COL,KEYS,VALUES	java.lang.Object previous()	ELEM
+EXIT	COL,KEYS,VALUES	java.lang.Object nextElement()	ELEM
+ENTRANCE	COL	void add(java.lang.Object)	0:ELEM
+ENTRANCE	COL	void set(java.lang.Object)	0:ELEM
+TRANSFER	ENTRIES	java.lang.Object next()	ENTRY
+TRANSFER	COL,KEYS,VALUES,ENTRIES	java.util.Iterator iterator()	SAME
+TRANSFER	COL	java.util.ListIterator listIterator()	SAME
+TRANSFER	COL	java.util.ListIterator listIterator(int)	SAME
+TRANSFER	COL	java.util.Iterator descendingIterator()	SAME
+TRANSFER	COL	java.util.Enumeration elements()	SAME
+# all elements of another described host (D61); the argument must be described completely, otherwise the receiver's class is excluded
+ENTRANCE_ALL	COL	boolean addAll(java.util.Collection)	0
+ENTRANCE_ALL	COL	boolean addAll(int,java.util.Collection)	1
+ENTRANCE_ALL	COL	void <init>(java.util.Collection)	0
+ENTRANCE_ALL	COL	void <init>(java.util.SortedSet)	0
+ENTRANCE_ALL	MAP	void putAll(java.util.Map)	0
+ENTRANCE_ALL	MAP	void <init>(java.util.Map)	0
+ENTRANCE_ALL	MAP	void <init>(java.util.SortedMap)	0
+# maps
+ENTRANCE	MAP	java.lang.Object put(java.lang.Object,java.lang.Object)	0:K 1:V
+EXIT	MAP	java.lang.Object put(java.lang.Object,java.lang.Object)	V
+EXIT	MAP	java.lang.Object get(java.lang.Object)	V
+ENTRANCE	MAP	java.lang.Object putIfAbsent(java.lang.Object,java.lang.Object)	0:K 1:V
+EXIT	MAP	java.lang.Object putIfAbsent(java.lang.Object,java.lang.Object)	V
+EXIT	MAP	java.lang.Object remove(java.lang.Object)	V
+EXIT	MAP	java.lang.Object firstKey()	K
+EXIT	MAP	java.lang.Object lastKey()	K
+TRANSFER	MAP	java.util.Set keySet()	KEYS
+TRANSFER	MAP	java.util.Collection values()	VALUES
+TRANSFER	MAP	java.util.Set entrySet()	ENTRIES
+TRANSFER	MAP	java.util.Enumeration keys()	KEYS
+TRANSFER	MAP	java.util.Enumeration elements()	VALUES
+EXIT	ENTRY	java.lang.Object getKey()	K
+EXIT	ENTRY	java.lang.Object getValue()	V
+EXIT	ENTRY	java.lang.Object setValue(java.lang.Object)	V
+ENTRANCE	ENTRY	java.lang.Object setValue(java.lang.Object)	0:V
+# no element enters the host
+NEUTRAL	*	int size()
+NEUTRAL	*	boolean isEmpty()
+NEUTRAL	*	boolean empty()
+NEUTRAL	*	boolean contains(java.lang.Object)
+NEUTRAL	*	boolean containsKey(java.lang.Object)
+NEUTRAL	*	boolean containsValue(java.lang.Object)
+NEUTRAL	*	boolean containsAll(java.util.Collection)
+NEUTRAL	*	int indexOf(java.lang.Object)
+NEUTRAL	*	int indexOf(java.lang.Object,int)
+NEUTRAL	*	int lastIndexOf(java.lang.Object)
+NEUTRAL	*	int search(java.lang.Object)
+NEUTRAL	*	void clear()
+NEUTRAL	*	boolean remove(java.lang.Object)
+NEUTRAL	*	boolean removeAll(java.util.Collection)
+NEUTRAL	*	boolean retainAll(java.util.Collection)
+NEUTRAL	*	boolean removeElement(java.lang.Object)
+NEUTRAL	*	void removeElementAt(int)
+NEUTRAL	*	void removeAllElements()
+NEUTRAL	*	boolean removeFirstOccurrence(java.lang.Object)
+NEUTRAL	*	boolean removeLastOccurrence(java.lang.Object)
+NEUTRAL	*	void trimToSize()
+NEUTRAL	*	void ensureCapacity(int)
+NEUTRAL	*	int capacity()
+NEUTRAL	*	void setSize(int)
+NEUTRAL	*	java.lang.Object[] toArray()
+NEUTRAL	*	java.lang.Object[] toArray(java.lang.Object[])
+NEUTRAL	*	void copyInto(java.lang.Object[])
+NEUTRAL	*	java.util.Comparator comparator()
+NEUTRAL	*	boolean hasNext()
+NEUTRAL	*	boolean hasPrevious()
+NEUTRAL	*	int nextIndex()
+NEUTRAL	*	int previousIndex()
+NEUTRAL	*	boolean hasMoreElements()
+NEUTRAL	*	void remove()
+NEUTRAL	*	boolean equals(java.lang.Object)
+NEUTRAL	*	int hashCode()
+NEUTRAL	*	java.lang.String toString()
+NEUTRAL	*	java.lang.Class getClass()
+# clone: Qilin models Object.clone() as returning the receiver, so the copy is the same host in the model (D62)
+NEUTRAL	*	java.lang.Object clone()
+NEUTRAL	*	void finalize()
+NEUTRAL	*	void wait()
+NEUTRAL	*	void wait(long)
+NEUTRAL	*	void wait(long,int)
+NEUTRAL	*	void notify()
+NEUTRAL	*	void notifyAll()
+NEUTRAL	*	void <init>()
+NEUTRAL	*	void <init>(int)
+NEUTRAL	*	void <init>(int,float)
+NEUTRAL	*	void <init>(int,float,boolean)
+NEUTRAL	*	void <init>(int,int)
+NEUTRAL	*	void <init>(java.util.Comparator)
+NEUTRAL	*	void <init>(int,java.util.Comparator)
+NEUTRAL	*	void <init>(java.lang.Class)
+NEUTRAL	*	void <init>(int,boolean)
+NEUTRAL	*	void <init>(int,float,int)
