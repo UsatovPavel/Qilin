@@ -37,6 +37,8 @@ flowchart TD
     style legend fill:transparent,stroke:#aaaaaa;
 ```
 
+See [INTEGRATIONS.md](INTEGRATIONS.md) for the CFL-IDR and UCFS flowcharts and domain language.
+
 ## List of articles
 
 - **Qilin (2022)** — [Qilin: A New Framework For Supporting Fine-Grained Context-Sensitivity in Java Pointer Analysis](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ECOOP.2022.30).
