@@ -1,6 +1,69 @@
 # UCFS integration
 
+```mermaid
+flowchart TD
+    A["Qilin / Spark"]
+    B["Graph export"]
+    C["Input adapter"]
+    D["CFL-IDR"]
+    E["Grammar RSMs"]
+    F["UCFS / GLL"]
+    G["SPPF"]
+    H["Result adapter"]
+
+    A --> B --> C --> D
+    D -->|"grammar selection"| E
+    E --> F
+    C -->|"graph + starts"| F
+    F --> G
+    G -->|"mutual refinement"| D
+    D -->|"under / over"| H
+
+    subgraph legend["Legend"]
+        direction LR
+        legendAdapter["Our adapters"]
+        legendCflidr["CFL-IDR"]
+        legendUcfs["UCFS"]
+    end
+
+    classDef host fill:#e8f0fe,stroke:#4277af,color:#183249;
+    classDef adapter fill:#fff2db,stroke:#ba8424,color:#513b16;
+    classDef library fill:#e5f5ec,stroke:#328066,color:#183e31;
+    classDef solver fill:#f0eafa,stroke:#8062ab,color:#35234c;
+    class A host;
+    class B,C,H,legendAdapter adapter;
+    class D,E,legendCflidr library;
+    class F,G,legendUcfs solver;
+    style legend fill:transparent,stroke:#aaaaaa;
+```
+
+See [INTEGRATIONS.md](INTEGRATIONS.md) for the CFL-IDR and UCFS flowcharts and domain language.
+
+## List of articles
+
+- **Qilin (2022)** — [Qilin: A New Framework For Supporting Fine-Grained Context-Sensitivity in Java Pointer Analysis](https://drops.dagstuhl.de/entities/document/10.4230/LIPIcs.ECOOP.2022.30).
+- **CFL-IDR (2025)** — [CFL-based methods for approximating interleaved Dyck reachability](https://cs.au.dk/~pavlogiannis/publications/papers/sttt25.pdf).
+- **Points-to analysis in Java (2005)** — [Demand-driven points-to analysis for Java](https://manu.sridharan.net/files/oopsla05.pdf).
+
 The `qilin.ucfs` Gradle module runs Qilin, converts its solved graph, invokes a CFL solver, and imports the resulting points-to sets.
+
+## Stack
+
+Kotlin for the integration module, matching the Kotlin implementation of the UCFS/GLL solver; Java for Qilin and Soot.
+
+## Comparison analyses
+
+**Final comparative benchmark results are not ready yet.** The table lists the analyses to compare, not established performance or precision rankings.
+
+| Sensitivity | Analysis | Role |
+| --- | --- | --- |
+| Context-sensitive | CFL-IDR | Analysis under evaluation, with under- and over-approximations |
+| Context-sensitive | Qilin `s-2c` | Fast selective 2-call-site-sensitive comparison, guided by a pre-analysis |
+| Context-sensitive | Qilin `2c` / `2o` | Standard 2-call-site-sensitive / 2-object-sensitive comparisons |
+| Context-insensitive | UCFS-typed | Typed, field-sensitive points-to analysis through UCFS/GLL |
+| Context-insensitive | Qilin Spark (`insens`) | Native context-insensitive reference and graph-building pre-analysis |
+
+## Packages
 
 | Package | Responsibility |
 | --- | --- |
@@ -43,7 +106,9 @@ Input graph preparation, GLL execution, profiling and answer extraction remain o
 
 ## Archived grammar — do not run
 
-`archive/TypedPointsTo.kt` preserves the old **subset/v1** grammar for historical reference only. It is marked `@Deprecated(level = DeprecationLevel.ERROR)`. **Do not run it, add it to tests or benchmarks, or use it as an active solver.** The `--solver=typed-subset` selector is rejected before Qilin starts. Use `--solver=typed` for shared-v2; current comparisons exercise active provider designs instead of the archived grammar.
+`archive/TypedPointsTo.kt` is deprecated subset/v1 code (`DeprecationLevel.ERROR`): **do not run or benchmark it**. `--solver=typed-subset` is rejected; use `--solver=typed` (shared-v2).
+
+## Build and test
 
 Use JDK 21 and a sibling UCFS checkout (or `-PucfsDir=/path/to/UCFS`):
 
