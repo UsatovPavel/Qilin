@@ -4,7 +4,7 @@
 
 ```mermaid
 flowchart TD
-    PBytecode["Bytecode"]
+    PEntry[" "]
     PSoot["Soot framework"]
 
     subgraph PQilin["Qilin framework"]
@@ -15,12 +15,12 @@ flowchart TD
 
     PPoints["Points-to sets"]
     PConstraints["Constraints"]
-    PGraph["PAG"]
+    PGraph["Boundaries graph"]
     PModule["UCFS module"]
     PResult["Qilin"]
 
-    PBytecode --> PSoot
-    PSoot -->|"Jimple"| PKernel
+    PEntry -->|"Bytecode"| PSoot
+    PSoot --> PKernel
     PSpark --> PPoints
     PSpark --> PConstraints
     PSpark --> PGraph
@@ -33,12 +33,11 @@ flowchart TD
     classDef data fill:#e5f5ec,stroke:#328066,color:#183e31;
     classDef integration fill:#fff2db,stroke:#ba8424,stroke-width:3px,color:#513b16;
     class PSoot,PKernel,PSpark framework;
-    class PBytecode,PPoints,PConstraints,PGraph,PResult data;
+    class PPoints,PConstraints,PGraph,PResult data;
+    style PEntry fill:transparent,stroke:transparent,color:transparent;
     class PModule integration;
     style PQilin fill:#f5f8ff,stroke:#4277af,color:#183249;
 ```
-
-Constraints are the allocation, assignment, load, and store relations encoded in the PAG. They are shown separately from their graph representation. The UCFS module contains our graph adapters, the solver integration, and the result adapter; points-to import into Qilin is enabled by `--inject` or `--metrics`.
 
 ## CFL-IDR
 
