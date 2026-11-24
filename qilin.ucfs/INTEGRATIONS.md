@@ -15,7 +15,7 @@ flowchart TD
     PConstraints["Constraints"]
     PGraph["PAG"]
     PModule["UCFS module"]
-    PResult["Qilin results"]
+    PResult["Qilin"]
 
     PBytecode --> PSoot
     PSoot -->|"Jimple"| PKernel
@@ -25,7 +25,7 @@ flowchart TD
     PPoints --> PModule
     PConstraints --> PModule
     PGraph --> PModule
-    PModule -->|"points-to import: optional"| PResult
+    PModule -->|"points-to sets"| PResult
 
     classDef framework fill:#e8f0fe,stroke:#4277af,color:#183249;
     classDef data fill:#e5f5ec,stroke:#328066,color:#183e31;
