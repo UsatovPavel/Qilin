@@ -1,4 +1,6 @@
-# System consists from 4 parts: our UCFS module, Qilin framework, CFL-IDR, UCFS
+# System consists from 4 parts: [our UCFS module](#qilin-integration), [Qilin framework](#qilin-integration), [CFL-IDR](#cfl-idr), [UCFS](#ucfs)
+
+Only diagrams and domain language are included here. Any changes must be directed by a human.
 
 ## Qilin integration
 
