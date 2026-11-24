@@ -1,3 +1,45 @@
+## Program pipeline
+
+```mermaid
+flowchart TD
+    PBytecode["Bytecode"]
+    PSoot["Soot framework"]
+
+    subgraph PQilin["Qilin framework"]
+        PKernel["Kernel"]
+        PSpark["Spark Solver"]
+        PKernel -->|"analysis rules"| PSpark
+    end
+
+    PPoints["Points-to sets"]
+    PConstraints["Constraints"]
+    PGraph["PAG"]
+    PModule["UCFS module"]
+    PResult["Qilin results"]
+
+    PBytecode --> PSoot
+    PSoot -->|"Jimple"| PKernel
+    PSpark --> PPoints
+    PSpark --> PConstraints
+    PSpark --> PGraph
+    PPoints --> PModule
+    PConstraints --> PModule
+    PGraph --> PModule
+    PModule -->|"points-to import: optional"| PResult
+
+    classDef framework fill:#e8f0fe,stroke:#4277af,color:#183249;
+    classDef data fill:#e5f5ec,stroke:#328066,color:#183e31;
+    classDef integration fill:#fff2db,stroke:#ba8424,stroke-width:3px,color:#513b16;
+    class PSoot,PKernel,PSpark framework;
+    class PBytecode,PPoints,PConstraints,PGraph,PResult data;
+    class PModule integration;
+    style PQilin fill:#f5f8ff,stroke:#4277af,color:#183249;
+```
+
+Constraints are the allocation, assignment, load, and store relations encoded in the PAG. They are shown separately from their graph representation. The UCFS module contains our graph adapters, the solver integration, and the result adapter; points-to import into Qilin is enabled by `--inject` or `--metrics`.
+
+## CFL-IDR
+
 ```mermaid
 flowchart TD
     %% Standard cfl-idr-with-gll PAR pipeline; no factored or INT backend.
