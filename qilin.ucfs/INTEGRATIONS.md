@@ -97,6 +97,7 @@ flowchart TD
 | GLL | UCFS | Algorithm used by UCFS to find graph paths accepted by a grammar. |
 | Descriptor | UCFS | A parsing step in UCFS, stored in the descriptor queue. It records the current graph vertex, grammar state, GraphStack node, and partial SPPF result. |
 | GraphStructuredStack | UCFS | The structure labeled GraphStack in the diagram. In UCFS, each node identifies a subtask by its nonterminal and starting graph vertex. Edges record its waiting callers, their return grammar states, and their partial SPPF results, so parsing can resume when the subtask produces a result. |
+| Qilin | Qilin | Incremental Java pointer analysis framework. |
 
 ## UCFS
 
